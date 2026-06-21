@@ -4,16 +4,24 @@ import { selectQuestions, type Question, type PoolId, type DifficultyCounts } fr
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
+import type { TimerMode } from "../components/TimerPicker";
 
 interface SessionLocationState {
   poolId: PoolId;
   selectedCategories: string[];
   counts: DifficultyCounts;
+  timerMode: TimerMode;
+  /** Total seconds for countdown; 0 means stopwatch */
+  timerDuration: number;
 }
 
 function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const h = Math.floor(Math.abs(seconds) / 3600);
+  const m = Math.floor((Math.abs(seconds) % 3600) / 60);
+  const s = Math.abs(seconds) % 60;
+  if (h > 0) {
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  }
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
@@ -24,8 +32,13 @@ export default function Session() {
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
-  const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [displaySeconds, setDisplaySeconds] = useState<number>(0);
+  const [isTimeUp, setIsTimeUp] = useState<boolean>(false);
   const startTimeRef = useRef<number>(0);
+
+  const timerMode: TimerMode = state?.timerMode ?? "stopwatch";
+  const timerDuration: number = state?.timerDuration ?? 0;
+  const isCountdown = timerMode === "timer" && timerDuration > 0;
 
   useEffect(() => {
     if (!state) {
@@ -37,20 +50,40 @@ export default function Session() {
     setQuestions(selected);
 
     startTimeRef.current = Date.now();
+    // For countdown, initialize immediately
+    setDisplaySeconds(isCountdown ? timerDuration : 0);
+
     const interval = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+
+      if (isCountdown) {
+        const remaining = timerDuration - elapsed;
+        if (remaining <= 0) {
+          setDisplaySeconds(0);
+          setIsTimeUp(true);
+          clearInterval(interval);
+        } else {
+          setDisplaySeconds(remaining);
+        }
+      } else {
+        setDisplaySeconds(elapsed);
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [state, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleComplete = (id: string) => {
     setCompleted((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleEndSession = () => {
+    const elapsedTime = isCountdown
+      ? timerDuration - displaySeconds // how much of the countdown was used
+      : displaySeconds;
     navigate("/summary", {
-      state: { questions, completed, elapsedTime },
+      state: { questions, completed, elapsedTime, timerMode },
     });
   };
 
@@ -62,6 +95,15 @@ export default function Session() {
     Hard: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
   };
 
+  // Color the timer urgently when ≤ 20% time left in countdown mode
+  const timerUrgent =
+    isCountdown && timerDuration > 0 && displaySeconds / timerDuration <= 0.2;
+  const timerClass = isTimeUp
+    ? "text-destructive animate-pulse"
+    : timerUrgent
+    ? "text-orange-500"
+    : "text-primary";
+
   return (
     <div className="space-y-6 flex flex-col flex-1">
       <div className="flex items-center justify-between border-b pb-4">
@@ -70,10 +112,18 @@ export default function Session() {
           <p className="text-muted-foreground">Focus mode. Do not refresh this page.</p>
         </div>
         <div className="text-right">
-          <div className="text-4xl font-mono font-bold text-primary tabular-nums">
-            {formatTime(elapsedTime)}
+          <div className={`text-4xl font-mono font-bold tabular-nums transition-colors ${timerClass}`}>
+            {isTimeUp ? "00:00" : formatTime(displaySeconds)}
           </div>
-          <p className="text-sm text-muted-foreground">Elapsed Time</p>
+          <p className="text-sm text-muted-foreground">
+            {isTimeUp ? "⏰ Time's up!" : isCountdown ? "Time Remaining" : "Elapsed Time"}
+          </p>
+          {/* Warning banner */}
+          {isTimeUp && (
+            <p className="text-xs text-destructive font-medium mt-1">
+              End the session when you're ready.
+            </p>
+          )}
         </div>
       </div>
 

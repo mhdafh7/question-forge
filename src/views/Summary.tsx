@@ -8,6 +8,7 @@ interface SummaryLocationState {
   questions: Question[];
   completed: Record<string, boolean>;
   elapsedTime: number;
+  timerMode?: "stopwatch" | "timer";
 }
 
 function formatTime(seconds: number): string {
@@ -30,9 +31,10 @@ export default function Summary() {
     );
   }
 
-  const { questions, completed, elapsedTime } = state;
+  const { questions, completed, elapsedTime, timerMode } = state;
   const completedCount = Object.values(completed).filter(Boolean).length;
   const totalQuestions = questions.length;
+  const timeLabel = timerMode === "timer" ? "Time Used" : "Total Time";
 
   return (
     <div className="space-y-8 max-w-3xl mx-auto w-full mt-8">
@@ -44,7 +46,7 @@ export default function Summary() {
       <div className="grid grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Time</CardDescription>
+            <CardDescription>{timeLabel}</CardDescription>
             <CardTitle className="text-3xl text-primary">{formatTime(elapsedTime)}</CardTitle>
           </CardHeader>
         </Card>
