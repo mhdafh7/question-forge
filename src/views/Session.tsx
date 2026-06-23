@@ -7,9 +7,12 @@ import { Checkbox } from "../components/ui/checkbox";
 import type { TimerMode } from "../components/TimerPicker";
 
 interface SessionLocationState {
-  poolId: PoolId;
-  selectedCategories: string[];
-  counts: DifficultyCounts;
+  /** When coming from RandomPicker, questions are already chosen */
+  preSelectedQuestions?: Question[];
+  /** Used when coming from Dashboard */
+  poolId?: PoolId;
+  selectedCategories?: string[];
+  counts?: DifficultyCounts;
   timerMode: TimerMode;
   /** Total seconds for countdown; 0 means stopwatch */
   timerDuration: number;
@@ -46,7 +49,13 @@ export default function Session() {
       return;
     }
 
-    const selected = selectQuestions(state);
+    const selected = state.preSelectedQuestions
+      ? state.preSelectedQuestions
+      : selectQuestions({
+          poolId: state.poolId!,
+          selectedCategories: state.selectedCategories,
+          counts: state.counts,
+        });
     setQuestions(selected);
 
     startTimeRef.current = Date.now();

@@ -99,3 +99,21 @@ export const selectQuestions = ({
   // Shuffle so questions aren't grouped by difficulty
   return getRandomSubarray(selected, selected.length);
 };
+
+/** Seconds to spend on each difficulty in the random-pick flow */
+export const RANDOM_TIMER_SECONDS: Record<Difficulty, number> = {
+  Easy:   20 * 60, // 20 min
+  Medium: 30 * 60, // 30 min
+  Hard:   45 * 60, // 45 min
+};
+
+/**
+ * Pick one question at random from the combined set of all pools.
+ * Optionally exclude a specific question id (for re-rolling).
+ */
+export function pickRandomQuestion(excludeId?: string): Question {
+  const all: Question[] = Object.values(POOLS).flatMap((p) => p.data);
+  const pool = excludeId ? all.filter((q) => q.id !== excludeId) : all;
+  const candidates = pool.length > 0 ? pool : all;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
