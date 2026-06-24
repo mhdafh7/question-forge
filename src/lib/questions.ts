@@ -112,8 +112,12 @@ export const RANDOM_TIMER_SECONDS: Record<Difficulty, number> = {
  * Optionally exclude a specific question id (for re-rolling).
  */
 export function pickRandomQuestion(excludeId?: string): Question {
-  const all: Question[] = Object.values(POOLS).flatMap((p) => p.data);
-  const pool = excludeId ? all.filter((q) => q.id !== excludeId) : all;
-  const candidates = pool.length > 0 ? pool : all;
+  // Build a deduplicated pool (Map keyed by id) so shared questions
+  // don't appear twice and skew the probability distribution.
+  const seen = new Map<string, Question>();
+  Object.values(POOLS).forEach((p) => p.data.forEach((q) => seen.set(q.id, q)));
+  const unique = Array.from(seen.values());
+  const pool = excludeId ? unique.filter((q) => q.id !== excludeId) : unique;
+  const candidates = pool.length > 0 ? pool : unique;
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
